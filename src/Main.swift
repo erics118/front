@@ -15,74 +15,45 @@ func getFrontApp() throws -> NSRunningApplication {
     }
 }
 
-// guard let bundleIdentifier = app?.bundleIdentifier else {
-//     print("Could not get frontmost application bundle identifier")
-//     exit(1)
-// }
-
-@available(*, deprecated)
-func launchAppWithBundleId(_ bundleId: String) {
-    // eg "com.cron.electron"
-    NSWorkspace.shared.launchApplication(bundleId)
-}
-
 func getHomeDirectory() -> URL {
     return FileManager.default.homeDirectoryForCurrentUser
 }
 
-func getUserApplicationDirectory() -> URL {
-    return getHomeDirectory().appendingPathComponent("Applications")
-}
-
-func launchAppWithPath(_ path: String) async throws {
+func activateAppWithPath(_ path: String) async throws {
     do {
         try await NSWorkspace.shared.openApplication(
             at: URL(fileURLWithPath: path),
-            configuration: NSWorkspace.OpenConfiguration() /* ,
-             completionHandler: { app, error in
-                 if let error = error {
-                     print("Could not open application: \(error)")
-                     exit(1)
-                 }
-                 print("Launched \(app!.bundleIdentifier!)")
-             } */
+            configuration: NSWorkspace.OpenConfiguration()
         )
     } catch {
         throw E.FailedToLaunchApp(path)
     }
-    // do {
-    //     sleep(4)
-    // }
 }
 
-func launchAppWithName(_ name: String) async throws {
+func activateAppWithName(_ name: String) async throws {
     let appPaths = [
         "/Applications/\(name).app",
-        "\(getUserApplicationDirectory().path)/\(name).app",
+        "\(getHomeDirectory())/Applications/\(name).app",
         "/System/Applications/\(name).app",
     ]
 
     for path in appPaths {
         if FileManager.default.fileExists(atPath: path) {
-            try await launchAppWithPath(path)
+            try await activateAppWithPath(path)
             return
         }
     }
 
     throw E.CouldNotFindApp(name)
-    // if NSWorkspace.shared.runningApplications.contains(where: { $0.localizedName == app }) {
-    //     print("\(app) is already running")
-    // } else {
-    //     print("Could not find application: \(app)")
-    //     exit(1)
-    // }
 }
 
-func launchOrHideAppWithName(_ name: String) async throws {
+func activateOrHideAppWithName(_ name: String) async throws {
     let front = try getFrontApp()
 
     var front_name = front.localizedName
 
+    // visual studio code is weird. in Finder, it's called "Visual Studio Code",
+    // but in the menu bar it's called "Code"
     if front_name == "Code" {
         front_name = "Visual Studio Code"
     }
@@ -93,17 +64,17 @@ func launchOrHideAppWithName(_ name: String) async throws {
     if front_name == name {
         front.hide()
     } else {
-        try await launchAppWithName(name)
+        try await activateAppWithName(name)
     }
 }
 
-func launchOrHideAppWithPath(_ path: String) async throws {
+func activateOrHideAppWithPath(_ path: String) async throws {
     let front = try getFrontApp()
 
     if front.bundleURL?.path == path {
         front.hide()
     } else {
-        try await launchAppWithPath(path)
+        try await activateAppWithPath(path)
     }
 }
 
@@ -118,7 +89,7 @@ func getFirstArg() throws -> String {
 let arg = try getFirstArg()
 
 if arg.starts(with: "/") {
-    try await launchOrHideAppWithPath(arg)
+    try await activateOrHideAppWithPath(arg)
 } else {
-    try await launchOrHideAppWithName(arg)
+    try await activateOrHideAppWithName(arg)
 }
