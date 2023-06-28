@@ -4,7 +4,7 @@ BINS           = $(BUILD_PATH)/front
 
 .PHONY: all clean install
 
-all: clean $(BINS)
+all: $(BINS)
 
 install: clean $(BINS)
 
