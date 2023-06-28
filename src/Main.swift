@@ -8,19 +8,32 @@ enum FrontError: Error {
 }
 
 func appNameToURL(_ name: String) throws -> URL {
-    let appPaths = [
-        "/Applications/\(name).app",
-        "\(FileManager.default.homeDirectoryForCurrentUser)/Applications/\(name).app",
-        "/System/Applications/\(name).app",
+    let appName = name.hasSuffix(".app") ? name : name + ".app"
+
+    // hopefully it won't be too slow to check all these folders
+    let appFolders = [
+        "/Applications/", // global apps
+        "/Applications/Utilities", // more global apps
+        "\(FileManager.default.homeDirectoryForCurrentUser)/Applications/", // user apps
+        "/System/Library/CoreServices/", // many system utility apps are here
+        "/System/Volumes/Preboot/Cryptexes/App/System/Applications/", // safari is special
     ]
 
-    for path in appPaths {
+    for folder in appFolders {
+        let path = folder + appName
         if FileManager.default.fileExists(atPath: path) {
             return URL(fileURLWithPath: path)
         }
     }
 
     throw FrontError.missingApp(name)
+}
+
+func bundleIdToURL(_ id: String) throws -> URL {
+    guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) else {
+        throw FrontError.missingApp(id)
+    }
+    return url
 }
 
 func activateApp(_ path: URL) async throws {
@@ -49,18 +62,39 @@ func activateOrHideApp(_ path: URL) async throws {
     }
 }
 
-func getFirstArg() throws -> String {
-    if let firstArg = CommandLine.arguments.dropFirst().first {
-        return firstArg
-    } else {
-        throw FrontError.missingCliArg
-    }
+func printHelp() {
+    print("""
+    Usage: front [-b <bundle-id>|-n <app-name>|-p <path>|-h]
+
+    Options:
+        -h              Print this help message
+        -b <bundle-id>  Activate or hide the app with the given bundle ID
+        -n <app-name>   Activate or hide the app with the given name
+        -p <path>       Activate or hide the app at the given path
+
+    Examples:
+        front -h
+        front -b com.apple.Finder
+        front -n Safari
+        front -p /Applications/TextEdit.app
+    """)
 }
 
-let arg = try getFirstArg()
+let args = CommandLine.arguments.dropFirst()
 
-if arg.starts(with: "/") {
-    try await activateOrHideApp(URL(fileURLWithPath: arg))
-} else {
-    try await activateOrHideApp(appNameToURL(arg))
+guard let type = args.first else {
+    printHelp()
+    exit(0)
+}
+
+guard let data = args.dropFirst().first else {
+    printHelp()
+    exit(0)
+}
+
+switch type {
+case "-b": try await activateOrHideApp(bundleIdToURL(data))
+case "-n": try await activateOrHideApp(appNameToURL(data))
+case "-p": try await activateOrHideApp(URL(fileURLWithPath: data))
+default: printHelp()
 }
