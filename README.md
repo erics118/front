@@ -1,6 +1,6 @@
 # front
 
-This is a macOS CLI in Swift to activate/hide apps.
+A macOS CLI in Swift to activate/hide apps.
 
 ## Installation
 
