@@ -2,9 +2,14 @@
 
 A macOS CLI in Swift to activate/hide apps.
 
+This was originally made to be used with  [skhd](https://github.com/koekeishiya/skhd), but it is not necessary.
+
 ## Installation
 
 Compile the project with `make` and copy the binary to wherever you want.
+
+Xcode is not required to compile the project, but Xcode command line tools may
+need to be installed are.
 
 ## Usage
 

@@ -1,22 +1,29 @@
 import AppKit
 
-enum FrontError: Error {
-    case missingCliArg
-    case missingFrontmostApp
-    case missingApp(String)
-    case failedToLaunchApp(String)
-}
-
 func appNameToURL(_ name: String) throws -> URL {
     let appName = name.hasSuffix(".app") ? name : name + ".app"
 
-    // hopefully it won't be too slow to check all these folders
+    switch appName {
+    case "Finder.app": return URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")
+    case "Safari.app": return URL(fileURLWithPath: "/System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app")
+    default: break
+    }
+
     let appFolders = [
-        "/Applications/", // global apps
-        "/Applications/Utilities", // more global apps
+        // user-installed global apps
+        "/Applications/",
+
+        // system apps
+        // they show even though they show up in /Applications to the user
+        // eg, App Store, Music, System Settings
+        "/System/Applications/",
+
+        // system utility apps
+        // eg, Terminal, Activity Monitor, Disk Utility
+        "/System/Applications/Utilities/",
+
+        // single-user apps
         "\(FileManager.default.homeDirectoryForCurrentUser)/Applications/", // user apps
-        "/System/Library/CoreServices/", // many system utility apps are here
-        "/System/Volumes/Preboot/Cryptexes/App/System/Applications/", // safari is special
     ]
 
     for folder in appFolders {
@@ -26,12 +33,14 @@ func appNameToURL(_ name: String) throws -> URL {
         }
     }
 
-    throw FrontError.missingApp(name)
+    print("Error: unable to find app with name \(name)")
+    exit(1)
 }
 
 func bundleIdToURL(_ id: String) throws -> URL {
     guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) else {
-        throw FrontError.missingApp(id)
+        print("Error: unable to find app with bundle id \(id)")
+        exit(1)
     }
     return url
 }
@@ -43,7 +52,8 @@ func activateApp(_ path: URL) async throws {
             configuration: NSWorkspace.OpenConfiguration()
         )
     } catch {
-        throw FrontError.failedToLaunchApp(path.absoluteString)
+        print("Error: failed to launch app with path \(path)")
+        exit(1)
     }
 }
 
@@ -52,7 +62,8 @@ func activateOrHideApp(_ path: URL) async throws {
     // instead of trying to hide Finder, which switches to a different app
 
     guard let front = NSWorkspace.shared.frontmostApplication else {
-        throw FrontError.missingFrontmostApp
+        print("Error: missing frontmost app")
+        exit(1)
     }
 
     if front.bundleURL == path {
@@ -67,34 +78,50 @@ func printHelp() {
     Usage: front [-b <bundle-id>|-n <app-name>|-p <path>|-h]
 
     Options:
-        -h              Print this help message
-        -b <bundle-id>  Activate or hide the app with the given bundle ID
-        -n <app-name>   Activate or hide the app with the given name
-        -p <path>       Activate or hide the app at the given path
+        -h, --help                     Print this help message
+        -b, --bundle-id <bundle-id>    Activate or hide the app with the given bundle ID
+        -n, --name <app-name>          Activate or hide the app with the given name
+        -p, --path <path>              Activate or hide the app at the given path
 
     Examples:
         front -h
         front -b com.apple.Finder
         front -n Safari
-        front -p /Applications/TextEdit.app
+        front -p /Applications/Firefox.app
     """)
 }
 
 let args = CommandLine.arguments.dropFirst()
 
 guard let type = args.first else {
-    printHelp()
-    exit(0)
-}
-
-guard let data = args.dropFirst().first else {
-    printHelp()
-    exit(0)
+    print("Error: missing argument")
+    exit(1)
 }
 
 switch type {
-case "-b": try await activateOrHideApp(bundleIdToURL(data))
-case "-n": try await activateOrHideApp(appNameToURL(data))
-case "-p": try await activateOrHideApp(URL(fileURLWithPath: data))
-default: printHelp()
+case "-b", "--bundle-id":
+    guard let data = args.dropFirst().first else {
+        print("Error: missing bundle id argument")
+        exit(1)
+    }
+    try await activateOrHideApp(bundleIdToURL(data))
+
+case "-n", "--name":
+    guard let data = args.dropFirst().first else {
+        print("Error: missing name argument")
+        exit(1)
+    }
+    try await activateOrHideApp(appNameToURL(data))
+
+case "-p", "--path":
+    guard let data = args.dropFirst().first else {
+        print("Error: missing path argument")
+        exit(1)
+    }
+    try await activateOrHideApp(URL(fileURLWithPath: data))
+case "-h", "--help":
+    printHelp()
+default:
+    print("Error: invalid argument")
+    exit(1)
 }
