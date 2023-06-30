@@ -11,8 +11,6 @@ func appNameToURL(_ name: String) throws -> URL {
 
     let appFolders = FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask)
 
-    print(appFolders)
-
     for folder in appFolders {
         let path = folder.appending(component: appName, directoryHint: .isDirectory)
         if FileManager.default.fileExists(atPath: path.path) {
