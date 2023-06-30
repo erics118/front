@@ -11,25 +11,30 @@ func appNameToURL(_ name: String) throws -> URL {
 
     let appFolders = [
         // user-installed global apps
-        "/Applications/",
+        URL(fileURLWithPath: "/Applications/", isDirectory: true),
 
         // system apps
         // they show even though they show up in /Applications to the user
         // eg, App Store, Music, System Settings
-        "/System/Applications/",
+        URL(fileURLWithPath: "/System/Applications/", isDirectory: true),
 
         // system utility apps
         // eg, Terminal, Activity Monitor, Disk Utility
-        "/System/Applications/Utilities/",
+        URL(fileURLWithPath: "/System/Applications/Utilities/", isDirectory: true),
 
         // single-user apps
-        "\(FileManager.default.homeDirectoryForCurrentUser)/Applications/", // user apps
+        // "\(FileManager.default.homeDirectoryForCurrentUser.path)/Applications/" as String, // user apps
+        FileManager.default.urls(for: .applicationDirectory, in: .userDomainMask)[0],
     ]
 
+    // let appFolders = FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask)
+
+    // print(appFolders)
+
     for folder in appFolders {
-        let path = folder + appName
-        if FileManager.default.fileExists(atPath: path) {
-            return URL(fileURLWithPath: path)
+        let path = folder.appending(component: appName, directoryHint: .isDirectory)
+        if FileManager.default.fileExists(atPath: path.path) {
+            return path
         }
     }
 
